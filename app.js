@@ -28,8 +28,6 @@ function App() {
     
     ctx = GetContext();
     
-    var height = sqrt3per2 * radius;
-  
     // First draw the filled hex
     ctx.fillStyle = hexColor;
     if (hex.open) {
@@ -88,38 +86,31 @@ function App() {
     this.radius = radius;
     this.mine = false;
     this.open = false;
-    this.visite = false;
-    this.marked = false;
-    
+    this.visited = false;
+    this.marked = false;    
     
     function IsInsideTriangle(coord, a, b) {
       // a and b span a triangle. See if coord is inside it by using barycentric coordinates.
       
-      function dot(vec1, vec2) {
-        return vec1[0]*vec2[0] + vec1[1]*vec2[1];
-      }
+      var invDenom = 1.0 / (a[1] * b[0] - a[0] * b[1]);
       
-      function len(vec) {
-        return Math.sqrt(dot(vec, vec));
-      }
-      
-      var u = dot(coord, a) / dot(a, a);
+      var u = (coord[0] * a[1] - coord[1] * a[0]) * invDenom;
       
       if (u < 0) {
         return false;
       }
       
-      var v = dot(coord, b) / dot(b, b);
+      var v = (coord[1] * b[0] - coord[0] * b[1]) * invDenom; 
       
       if (v < 0) {
         return false;
       }
       
-      if (u + v <= 1.0) {
-        return true;
+      if (u + v > 1.0) {
+        return false;
       }
       
-      return false;
+      return true;
     }
   
     this.GetCorners = function() {
@@ -127,10 +118,10 @@ function App() {
       return [
         [radius, 0.0],
         [0.5 * radius, height],
-        [- 0.5 * radius, height],
-        [- radius, 0.0],
-        [-0.5 * radius,  -height],
-        [0.5 * radius,  -height],
+        [-0.5 * radius, height],
+        [-radius, 0.0],
+        [-0.5 * radius, -height],
+        [0.5 * radius, -height],
         [radius, 0.0]
       ];
     }
@@ -170,6 +161,113 @@ function App() {
       this.victory = false;
       hexColor = defHexColor;
       Draw();
+    }
+    
+    this.Demo = function() { 
+         
+      if (this.victory || this.gameover) {
+        return;
+      }
+      
+      var action;
+      
+      for (var i = 0; i < this.hexes.length; i++) {
+        var hex = this.hexes[i];
+        
+        if (hex.open) {
+          var neibs = GetNeighbors(hex);
+          
+          var closed = 0;
+          var marked = 0;
+          for (var j = 0; j < neibs.length; j++) {
+            if (!neibs[j].open) {
+              closed++;
+            }
+            
+            if (neibs[j].marked) {
+              marked++;
+            }
+          }
+          
+          if (marked == hex.neighborMines) {
+            if (closed > marked) {
+              for (var j = 0; j < neibs.length; j++) {
+                if (!neibs[j].open && !neibs[j].marked) {
+                  action = function() { ClickLeft(neibs[j]);};
+                  break;
+                }
+              }
+            }
+          }
+          
+          if (action != undefined) {
+            break;
+          }
+          
+        }
+        
+      }
+      
+      if (action == undefined) {
+      
+        for (var i = 0; i < this.hexes.length; i++) {
+          var hex = this.hexes[i];
+          if (hex.open) {
+            
+            var neibs = GetNeighbors(hex);
+            
+            var marked = 0;
+            for (var j = 0; j < neibs.length; j++) {
+              if (neibs[j].marked) {
+                marked++;
+              }
+            }
+            
+            if (marked == hex.neighborMines) {
+              continue;
+            }
+            
+            
+            var closed = 0;
+            for (var j = 0; j < neibs.length; j++) {
+              if (!neibs[j].open) {
+                closed++;
+              }
+            }
+            
+            if (closed == hex.neighborMines) {
+              action = function() {
+                for (var j = 0; j < neibs.length; j++) {
+                  if (!neibs[j].open && !neibs[j].marked) {
+                    ClickRight(neibs[j]);
+                  }
+                }
+              };
+              break;
+            }
+          }
+        }
+      }
+
+      if (action == undefined) {
+        // Find random closed hex to click
+        var closed = [];
+        for (var i = 0; i < this.hexes.length; i++) {
+          if (!this.hexes[i].open && !this.hexes[i].marked) {
+            closed.push(this.hexes[i]);
+          }
+        }
+        
+        console.log("Selecting randomly from " + closed.length + " hexes..");
+        
+        var randhex = closed[Math.floor(Math.random() * closed.length)];
+        action = function() { return ClickLeft(randhex);};
+      }
+      
+      setTimeout(action, 50);
+    
+      setTimeout(function() { this.Demo(); }, 50);
+        
     }
     
     function InitHexes() {
@@ -213,7 +311,7 @@ function App() {
     
     function CountMines() {
       for (var i = 0; i < this.hexes.length; i++) {
-        neibs = GetNeighbors(this.hexes[i], i);
+        neibs = GetNeighbors(this.hexes[i]);
         var mineCount = 0;
         for (var j = 0; j < neibs.length; j++) {
           if (neibs[j].mine) {
@@ -438,6 +536,10 @@ function App() {
     this.hg.StartGame();
   }
   
+  function Demo() {
+    this.hg.Demo();
+  }
+  
   function ScreenToCanvas(sx, sy) {
     rect = GetCanvas().getBoundingClientRect();
     return { x: sx - rect.left, y: sy - rect.top };
@@ -446,6 +548,10 @@ function App() {
   function OnKey(ev) {
     if (ev.keyCode == 82) {
       StartGame();
+    }
+    
+    if (ev.keyCode == 68) {
+      Demo();
     }
   }
   
