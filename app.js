@@ -143,6 +143,12 @@ function App() {
     return this;
   }
   
+  function for_each(list, func) {
+    for (var i = 0; i < list.length; i++) {
+      func(list[i]);
+    }
+  }
+  
   function HexGrid(w, h, res, pos) {
     var height = h;
     var width = w;
@@ -172,17 +178,8 @@ function App() {
           if (hex.open) {
             var neibs = GetNeighbors(hex);
             
-            var closed = 0;
-            var marked = 0;
-            for (var j = 0; j < neibs.length; j++) {
-              if (!neibs[j].open) {
-                closed++;
-              }
-              
-              if (neibs[j].marked) {
-                marked++;
-              }
-            }
+            var closed = GetNeighbors(hex, function(hex) { return !hex.open; }).length;
+            var marked = GetNeighbors(hex, function(hex) { return hex.marked; }).length;
             
             if (marked == hex.neighborMines) {
               if (closed > marked) {
@@ -205,23 +202,13 @@ function App() {
             
             var neibs = GetNeighbors(hex);
             
-            var marked = 0;
-            for (var j = 0; j < neibs.length; j++) {
-              if (neibs[j].marked) {
-                marked++;
-              }
-            }
+            var marked = GetNeighbors(hex, function(hex) { return hex.marked; }).length
             
             if (marked == hex.neighborMines) {
               continue;
             }
             
-            var closed = 0;
-            for (var j = 0; j < neibs.length; j++) {
-              if (!neibs[j].open) {
-                closed++;
-              }
-            }
+            var closed = GetNeighbors(hex, function(hex) { return !hex.open; }).length
             
             if (closed == hex.neighborMines) {
               return function() {
@@ -313,13 +300,7 @@ function App() {
     
     function CountMines() {
       for (var i = 0; i < this.hexes.length; i++) {
-        neibs = GetNeighbors(this.hexes[i]);
-        var mineCount = 0;
-        for (var j = 0; j < neibs.length; j++) {
-          if (neibs[j].mine) {
-            mineCount++;
-          }
-        }
+        var mineCount = GetNeighbors(this.hexes[i], function(hex) { return hex.mine; }).length;
         this.hexes[i].neighborMines = mineCount;
       }
     }
@@ -365,7 +346,12 @@ function App() {
       return marked;
     }
     
-    function GetNeighbors(current) {
+    function GetNeighbors(current, cond) {
+      
+      if (cond == undefined) {
+        cond = function(hex) { return true; };
+      }
+      
       neighbors = [];
       var index = current.index;
       var row = (index % height);
@@ -407,7 +393,14 @@ function App() {
         }
       }
      
-      return neighbors;
+      var ret = [];
+      for (var i = 0; i < neighbors.length; i++) {
+        if (cond(neighbors[i])) {
+          ret.push(neighbors[i]);
+        }
+      }
+     
+      return ret;
     }
     
     function FindHex(coords) {
@@ -440,11 +433,10 @@ function App() {
     }
     
     function GameOver() {
-      for (var i = 0; i < this.hexes.length; i++) {
-        this.hexes[i].open = true;
-        this.gameover = true;
-        this.victory = false;
-      }
+      for_each(this.hexes, function(hex) { hex.open = true});
+      
+      this.gameover = true;
+      this.victory = false;
     }
     
     function EmptyClicked(empty) {
@@ -464,16 +456,13 @@ function App() {
         }
       }
       
-      for (var i = 0; i < result.length; i++) {
-        neibs = GetNeighbors(result[i]);
-        for (var j = 0; j < neibs.length; j++) {
-          neibs[j].open = true;
-        }
-      }
+      for_each(result, function (res_hex) {
+        neibs = GetNeighbors(res_hex);
+        for_each(neibs, function (neib_hex) { neib_hex.open = true; });
+      });
       
-      for (var i = 0; i < this.hexes.length; i++) {
-        this.hexes[i].visited = false;
-      }
+      for_each(this.hexes, function(hex) { hex.visited = false; });
+      
     }
     
     function CheckVictory() {
@@ -532,20 +521,12 @@ function App() {
     function HandleBothPressed(hit) {
       
       if (hit.open) {
-        var neibs = GetNeighbors(hit);
-        var neibsMarked = 0;
-        for (var i = 0; i < neibs.length; i++) {
-          if (neibs[i].marked) {
-            neibsMarked++;
-          }
-        }
+        
+        var neibsMarked = GetNeighbors(hit, function (hex) { return hex.marked; }).length;
         
         if (neibsMarked == hit.neighborMines) {
-          for (var i = 0; i < neibs.length; i++) {
-            if (!neibs[i].marked) {
-              OpenHex(neibs[i]);
-            }
-          }
+          var nonMarked = GetNeighbors(hit, function(hex) { return !hex.marked; });
+          for_each(nonMarked, function(hex) {OpenHex(hex)});
         }
       }
     }
@@ -562,9 +543,6 @@ function App() {
         CheckVictory();
       }
     }
-    
-    
-    
     return this;
   }
   
