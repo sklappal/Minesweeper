@@ -13,55 +13,7 @@ function App() {
   var largeFont = "96px Segoe UI";
   var sqrt3per2 = 0.86602540378;
   
-  function DrawHex(hex, radius) {
-    function innerDraw(ctx) {
-      var corners = hex.GetCorners();
-      ctx.moveTo(x + corners[0][0], y + corners[0][1]);
-      
-      for (var i = 1; i < corners.length; i++) {
-        ctx.lineTo(x + corners[i][0], y + corners[i][1]);
-      }   
-    }
-    
-    var x = hex.pos.x;
-    var y = hex.pos.y;
-    
-    ctx = GetContext();
-    
-    // First draw the filled hex
-    ctx.fillStyle = hexColor;
-    if (hex.open) {
-      if (hex.mine) {
-        ctx.fillStyle = openColor[7];
-      } else {
-        ctx.fillStyle = openColor[hex.neighborMines];      
-      }
-    } 
-    ctx.beginPath();
-    innerDraw(ctx);
-    ctx.closePath();
-    ctx.fill();
-    
-    // Then the border
-    ctx.strokeStyle = borderColor;
-    ctx.lineWidth = "2";
-    innerDraw(ctx);
-    ctx.stroke();
-   
-    text = "";
-    if (hex.open) {
-      if (hex.mine) {
-        text = "M";
-      } else {
-        if (hex.neighborMines > 0) {
-          text = hex.neighborMines;
-        }
-      }
-    } else if (hex.marked) {
-      text = "X";
-    }
-    NormalText(text, x-3, y+4, smallFont, textColor);
-  }
+  
   
   function StrokeText(text, posx, posy, font, color) {
     NormalText(text, posx, posy, font, color);
@@ -138,6 +90,56 @@ function App() {
         }
       }
       return false;
+    }
+    
+    this.Draw = function() {
+      var corners = this.GetCorners();
+      function innerDraw(ctx) {
+        ctx.moveTo(x + corners[0][0], y + corners[0][1]);
+        
+        for (var i = 1; i < corners.length; i++) {
+          ctx.lineTo(x + corners[i][0], y + corners[i][1]);
+        }   
+      }
+      
+      var x = this.pos.x;
+      var y = this.pos.y;
+      
+      ctx = GetContext();
+      
+      // First draw the filled hex
+      ctx.fillStyle = hexColor;
+      if (this.open) {
+        if (this.mine) {
+          ctx.fillStyle = openColor[7];
+        } else {
+          ctx.fillStyle = openColor[this.neighborMines];      
+        }
+      } 
+      ctx.beginPath();
+      innerDraw(ctx);
+      ctx.closePath();
+      ctx.fill();
+      
+      // Then the border
+      ctx.strokeStyle = borderColor;
+      ctx.lineWidth = "2";
+      innerDraw(ctx);
+      ctx.stroke();
+     
+      text = "";
+      if (this.open) {
+        if (this.mine) {
+          text = "M";
+        } else {
+          if (this.neighborMines > 0) {
+            text = this.neighborMines;
+          }
+        }
+      } else if (this.marked) {
+        text = "X";
+      }
+      NormalText(text, x-3, y+4, smallFont, textColor);
     }
     
     return this;
@@ -226,13 +228,7 @@ function App() {
       
       function OpenRandomNonMarkedHex() {
         // Find random closed hex to click
-        var closed = [];
-        var action;
-        for (var i = 0; i < this.hexes.length; i++) {
-          if (!this.hexes[i].open && !this.hexes[i].marked) {
-            closed.push(this.hexes[i]);
-          }
-        }
+        var closed = this.hexes.filter(function(hex) { return !hex.open && !hex.marked;})
         
         console.log("Selecting randomly from " + closed.length + " hexes..");
         
@@ -316,9 +312,7 @@ function App() {
       
       GetContext().clearRect(0, 0, GetCanvas().width, GetCanvas().height);
       
-      for (var i = 0; i < this.hexes.length; i++) {
-        DrawHex(hexes[i], resolution);
-      }
+      for_each(this.hexes, function(hex) { hex.Draw(); });
   
       if (this.gameover || this.victory) {
         victoryTexts = ["Great!", "Amazing!", "Congratulations!", "YEAH!", "Good Job!", "Well done!", "Lucky!", "Allright!", "Woot woot!"];
@@ -337,13 +331,7 @@ function App() {
     }
     
     function MarkedHexes() {
-      var marked = 0;
-      for (var i = 0; i < this.hexes.length; i++) {
-        if (this.hexes[i].marked) {
-          marked++;
-        }
-      }
-      return marked;
+      return this.hexes.filter(function(hex) { return hex.marked; }).length;
     }
     
     function GetNeighbors(current, cond) {
@@ -393,14 +381,7 @@ function App() {
         }
       }
      
-      var ret = [];
-      for (var i = 0; i < neighbors.length; i++) {
-        if (cond(neighbors[i])) {
-          ret.push(neighbors[i]);
-        }
-      }
-     
-      return ret;
+      return neighbors.filter(cond);
     }
     
     function FindHex(coords) {
@@ -467,16 +448,10 @@ function App() {
     
     function CheckVictory() {
       if (!this.gameover) { // Victory condition
-        onlyMinesClosed = true;
-        for (var i = 0; i < this.hexes.length; i++) {
-          if (!this.hexes[i].open) {
-            if (!this.hexes[i].mine) {
-              onlyMinesClosed = false;
-            }
-          }
-        }
         
-        if (onlyMinesClosed) {
+        var closedNonMines = this.hexes.filter(function(hex) { return !hex.open && !hex.mine;});
+                
+        if (closedNonMines.length == 0) {
           this.victory = true;
         }
       }
