@@ -1,19 +1,114 @@
 function App() {
   
   var bgColor = "#202020"
-  var openColor = ["#d07070", "#d06060", "#d05050", "#d04040", "#d03030", "#d02020", "#d01010", "#a00000"];
+  var openColor = ["#7070d0", "#6060d0", "#5050d0", "#4040d0", "#3030d0", "#2020d0", "#1010d0", "#a00000"];
   var victoryColor = "#70ff70";
   var white = "#ffffff";
   var defHexColor = white;
-  var borderColor = "#ff0000";
+  var borderColor = "#0000ff";
   var textColor = "#000000";
   var hexColor = white;
-  var mineRatio = 0.15;
   var smallFont = "12px Segoe UI";
   var largeFont = "96px Segoe UI";
   var sqrt3per2 = 0.86602540378;
   
-  
+  function SliderControl(pos) {
+
+    this.val = 0.15;
+    var width = 100;
+    var height = 10;
+    var knobHeight = 30;
+    var knobWidth = 10;
+    this.position = pos;
+    var dragging = false;
+    var that = this;
+    
+    this.Draw = function() {
+      var ctx = GetContext();
+      var bb = BoundingBox();
+      ctx.clearRect(bb.x, bb.y, bb.w, bb.h);
+      
+      ctx.fillStyle = "grey";
+      var main = MainBox();
+      ctx.fillRect(main.x, main.y, main.w, main.h);
+      
+      ctx.fillStyle = "white";
+      var knobBox = KnobBox();
+      ctx.fillRect(knobBox.x, knobBox.y, knobBox.w, knobBox.h);
+      NormalText(this.val.toFixed(2), knobBox.x - 2, knobBox.y - 5, smallFont, "white");
+    }
+    
+    function BoundingBox() {
+      return {
+        x: that.position.x - knobWidth,
+        y: KnobBox().y - 20,
+        w: width + 3 * knobWidth,
+        h: knobHeight + 20
+      }
+    }
+    
+    function MainBox() {
+      return {
+        x: that.position.x, 
+        y: that.position.y,
+        w: width,
+        h: height
+      };
+    }
+    
+    function KnobBox() {
+      return { 
+        x: that.val * width + pos.x - knobWidth * 0.5, 
+        y: that.position.y - knobHeight * 0.5 + height * 0.5, 
+        w: knobWidth, 
+        h: knobHeight 
+      };
+    }
+    
+    function BoxContains(box, coords) {
+      return coords.x >= box.x && 
+        coords.x <= box.x + box.w &&
+        coords.y >= box.y &&
+        coords.y <= box.y + box.h;
+    }
+    
+    this.Contains = function(coords) {
+      return BoxContains(KnobBox(), coords) || BoxContains(MainBox(), coords);
+    }
+    
+    this.OnMouseDown = function(coords, button) {
+      if (button == 3) {
+        return;
+      }
+      
+      if (BoxContains(KnobBox(), coords)) {
+        dragging = true;
+      } else if(BoxContains(MainBox(), coords)) {
+        SetValAtCoord(coords);
+        dragging = true;
+        this.Draw(); 
+      }
+    }
+    
+    this.OnMouseUp = function() {
+      dragging = false;
+    }
+    
+    function SetValAtCoord(coords) {
+      var coordx = coords.x - that.position.x;
+      coordx = Math.max(0, coordx);
+      coordx = Math.min(width, coordx);
+      that.val = coordx / width;
+    }
+    
+    this.OnMouseMove = function(coords) {
+      if (dragging) {
+        SetValAtCoord(coords);
+        this.Draw();
+      }
+    }
+    
+  }
   
   function StrokeText(text, posx, posy, font, color) {
     NormalText(text, posx, posy, font, color);
@@ -39,7 +134,7 @@ function App() {
     this.mine = false;
     this.open = false;
     this.visited = false;
-    this.marked = false;    
+    this.marked = false;
     
     function IsInsideTriangle(coord, a, b) {
       // a and b span a triangle. See if coord is inside it by using barycentric coordinates.
@@ -142,7 +237,6 @@ function App() {
       NormalText(text, x-3, y+4, smallFont, textColor);
     }
     
-    return this;
   }
   
   function for_each(list, func) {
@@ -158,24 +252,44 @@ function App() {
     
     var position = pos;
     
-    this.StartGame = function() {
+    this.slider = new SliderControl({x: 700, y: 25});
+    this.gameover = false;
+    this.victory = false;
+    this.gameinprogress = false;
+    
+    var wintext = "";
+    var losetext = "";
+    
+    var that = this;
+    
+    this.InitGame = function() {
       InitHexes();
       
       InitMines();
-      
-      CountMines();
+            
+      hexColor = defHexColor;
       
       this.gameover = false;
       this.victory = false;
-      hexColor = defHexColor;
+      this.gameinprogress = false;
+      
+      victoryTexts = ["Great!", "Amazing!", "Congratulations!", "YEAH!", "Good Job!", "Well done!", "Lucky!", "Allright!", "Woot woot!"];
+      loseTexts = ["Aww..", "Too bad!", "Damn!", "Knew it!", "You lose.", "*BOOM*", "Watch out!", "Loser :)"];
+        
+      var winneR = Math.floor(Math.random() * victoryTexts.length);
+      var loseR = Math.floor(Math.random() * loseTexts.length);
+      
+      wintext = victoryTexts[winneR];
+      losetext = loseTexts[loseR];
+      
       Draw();
     }
     
     this.Demo = function() {
       function TryFindOpenableHex() {
         // Find a hex that has enough neighors marked so that it can be safely opened
-        for (var i = 0; i < this.hexes.length; i++) {
-          var hex = this.hexes[i];
+        for (var i = 0; i < that.hexes.length; i++) {
+          var hex = that.hexes[i];
           
           if (hex.open) {
             var neibs = GetNeighbors(hex);
@@ -198,8 +312,8 @@ function App() {
       
       function TryFindMarkableHexes() {
         // Mark hexes that are certain to contain mines
-        for (var i = 0; i < this.hexes.length; i++) {
-          var hex = this.hexes[i];
+        for (var i = 0; i < that.hexes.length; i++) {
+          var hex = that.hexes[i];
           if (hex.open) {
             
             var neibs = GetNeighbors(hex);
@@ -228,7 +342,7 @@ function App() {
       
       function OpenRandomNonMarkedHex() {
         // Find random closed hex to click
-        var closed = this.hexes.filter(function(hex) { return !hex.open && !hex.marked;})
+        var closed = that.hexes.filter(function(hex) { return !hex.open && !hex.marked;})
         
         console.log("Selecting randomly from " + closed.length + " hexes..");
         
@@ -238,6 +352,10 @@ function App() {
       
       if (this.victory || this.gameover) {
         return;
+      }
+      
+      if (!this.gameinprogress) {
+        OnGameStarted();
       }
       
       var action = TryFindOpenableHex();
@@ -252,11 +370,11 @@ function App() {
       
       setTimeout(action, 50);
     
-      setTimeout(function() { this.Demo(); }, 50);
+      setTimeout(function() { that.Demo(); }, 50);
     }
     
     function InitHexes() {
-      this.hexes = [];
+      that.hexes = [];
       var ind = 0;
       var curX = position.x;
       for (var x = 0; x < width; x++) {
@@ -267,7 +385,7 @@ function App() {
              offSet = resolution * sqrt3per2;
           }
           
-          this.hexes.push(new Hex({x: curX, y: curY + offSet}, ind, resolution));
+          that.hexes.push(new Hex({x: curX, y: curY + offSet}, ind, resolution));
           curY += resolution * sqrt3per2 * 2;  
           ind++;
         }
@@ -278,60 +396,73 @@ function App() {
     function InitMines() {
       var mineCount = TotalMineCount();
       var mines = [];
-      for (var i = 0; i < this.hexes.length; i++) {
-        var hexesRemaining = this.hexes.length - i;
+      var nonMines = [];
+      for (var i = 0; i < that.hexes.length; i++) {
+        var hexesRemaining = that.hexes.length - i;
         var minesRemaining = mineCount - mines.length;
-        if (minesRemaining == 0) {
-          break;
-        }
         if (Math.random() < minesRemaining / hexesRemaining) {
           mines.push(i);
+        } else {
+          nonMines.push(i);
         }
       }
       
-      for (var i = 0; i < mines.length; i++) {
-        this.hexes[mines[i]].mine = true;
-      }
+      for_each(mines, function(index) { that.hexes[index].mine = true; });
+      for_each(nonMines, function(index) { that.hexes[index].mine = false; });
+      
+      for_each(that.hexes, function(curhex) {
+        var mineCount = GetNeighbors(curhex, function(hex) { return hex.mine; }).length;
+        curhex.neighborMines = mineCount;
+      });
     }
-    
-    function CountMines() {
-      for (var i = 0; i < this.hexes.length; i++) {
-        var mineCount = GetNeighbors(this.hexes[i], function(hex) { return hex.mine; }).length;
-        this.hexes[i].neighborMines = mineCount;
-      }
-    }
-    
+
     function TotalMineCount() {
-      return Math.floor(mineRatio * width * height);
+      return Math.floor(GetMineRatio() * width * height);
+    }
+    
+    var mineRatio;
+    
+    function GetMineRatio() {
+      if (!that.gameinprogress) { // Update only when game not in progress
+        mineRatio = that.slider.val;
+      }
+      return mineRatio;
     }
     
     function Draw() {
-      if (this.victory) {
+      if (that.victory) {
         hexColor = victoryColor;
       }
       
       GetContext().clearRect(0, 0, GetCanvas().width, GetCanvas().height);
       
-      for_each(this.hexes, function(hex) { hex.Draw(); });
+      for_each(that.hexes, function(hex) { hex.Draw(); });
   
-      if (this.gameover || this.victory) {
-        victoryTexts = ["Great!", "Amazing!", "Congratulations!", "YEAH!", "Good Job!", "Well done!", "Lucky!", "Allright!", "Woot woot!"];
-        loseTexts = ["Aww..", "Too bad!", "Damn!", "Knew it!", "You lose.", "*BOOM*", "Watch out!", "Loser :)"];
+      if (that.gameover || that.victory) {
         
-        var winneR = Math.floor(Math.random() * victoryTexts.length);
-        var loseR = Math.floor(Math.random() * loseTexts.length);
-        
-        var text = this.gameover ? loseTexts[loseR] : victoryTexts[winneR];
+        var text = that.gameover ? losetext : wintext;
         
         StrokeText(text, 70, 200, largeFont, white)
-        StrokeText("Press R to restart.", 70, 400, largeFont, white);
+        if (that.victory) {
+          StrokeText("Took " + that.gametime.toFixed(2) + " s.", 70, 400, largeFont, white);
+        }
+        StrokeText("Click to restart.", 70, 600, largeFont, white);
+      }
+
+      if (!that.gameinprogress) {
+        that.slider.Draw();
+      } else {
+        NormalText(that.slider.val, that.slider.position.x, that.slider.position.y + 8, smallFont, white);
       }
       
-      NormalText(Math.max(0, TotalMineCount() - MarkedHexes()), 30, 10, smallFont, white); // don't go below zero
+      NormalText("Mine ratio: ", that.slider.position.x - 70, that.slider.position.y + 8, smallFont, white);
+      
+      NormalText("Marked: " + MarkedHexes(), 30, 10, smallFont, white);
+      NormalText("Total: " + TotalMineCount(), 30, 30, smallFont, white);
     }
     
     function MarkedHexes() {
-      return this.hexes.filter(function(hex) { return hex.marked; }).length;
+      return that.hexes.filter(function(hex) { return hex.marked; }).length;
     }
     
     function GetNeighbors(current, cond) {
@@ -346,37 +477,37 @@ function App() {
       var col = (index - (index % height)) / height;
     
       if (row > 0) {
-        neighbors.push(this.hexes[index - 1]);
+        neighbors.push(that.hexes[index - 1]);
       }
       
       if (row < height - 1) {
-        neighbors.push(this.hexes[index + 1]);
+        neighbors.push(that.hexes[index + 1]);
       }
   
       if (col > 0) {
-        neighbors.push(this.hexes[index - height]);
+        neighbors.push(that.hexes[index - height]);
         
         if (col % 2 == 1) {
           if (row < height - 1) {
-            neighbors.push(this.hexes[index - height + 1]);
+            neighbors.push(that.hexes[index - height + 1]);
           }
         } else {
           if (row > 0) {
-            neighbors.push(this.hexes[index - height - 1]);
+            neighbors.push(that.hexes[index - height - 1]);
           }
         }
       }
       
       if (col < width - 1) {
-        neighbors.push(this.hexes[index + height]);
+        neighbors.push(that.hexes[index + height]);
         
         if (col % 2 == 1) {
           if (row < height - 1) {
-            neighbors.push(this.hexes[index + height + 1]);
+            neighbors.push(that.hexes[index + height + 1]);
           }
         } else {
           if (row > 0) {
-            neighbors.push(this.hexes[index + height - 1]);
+            neighbors.push(that.hexes[index + height - 1]);
           }
         }
       }
@@ -385,8 +516,8 @@ function App() {
     }
     
     function FindHex(coords) {
-      for (var i = 0; i < this.hexes.length; i++) {
-        var hex = this.hexes[i];
+      for (var i = 0; i < that.hexes.length; i++) {
+        var hex = that.hexes[i];
         if (hex.Contains(coords)) {
           return hex;
         }
@@ -414,10 +545,9 @@ function App() {
     }
     
     function GameOver() {
-      for_each(this.hexes, function(hex) { hex.open = true});
-      
-      this.gameover = true;
-      this.victory = false;
+      for_each(that.hexes, function(hex) { hex.open = true;});
+      that.gameover = true;
+      that.victory = false;
     }
     
     function EmptyClicked(empty) {
@@ -439,50 +569,70 @@ function App() {
       
       for_each(result, function (res_hex) {
         neibs = GetNeighbors(res_hex);
-        for_each(neibs, function (neib_hex) { neib_hex.open = true; });
+        for_each(neibs, function (neib_hex) { neib_hex.open = true;});
       });
       
-      for_each(this.hexes, function(hex) { hex.visited = false; });
-      
+      for_each(that.hexes, function(hex) { hex.visited = false; });
     }
     
     function CheckVictory() {
-      if (!this.gameover) { // Victory condition
+      if (!that.gameover) { // Victory condition
         
-        var closedNonMines = this.hexes.filter(function(hex) { return !hex.open && !hex.mine;});
+        var closedNonMines = that.hexes.filter(function(hex) { return !hex.open && !hex.mine;});
                 
         if (closedNonMines.length == 0) {
-          this.victory = true;
+          that.victory = true;
+          that.gametime = (new Date().getTime() - that.starttime) / 1000;
         }
       }
+    }
+    
+    function OnGameStarted() {
+      that.starttime = new Date().getTime();
+      that.gameinprogress = true;
     }
     
     var mouseButtonsDown = [];
     
     this.OnMouseDown = function(coords, button) {
       mouseButtonsDown[button] = true;
+      
+      if (this.slider.Contains(coords) && !this.gameinprogress) {
+        this.slider.OnMouseDown(coords, button);
+      }
+      
       var hit = FindHex(coords);
       
-      if (hit == undefined) {
-        return;
-      }
-      
       if (this.victory || this.gameover) {
-        return false;
+        this.InitGame();
+      } else { // Game in progress or about to start
+        if (hit != undefined) {
+          if (!this.gameinprogress) {
+            OnGameStarted();
+          }
+                    
+          if (button == 1 ) {
+            ClickLeft(hit);
+          } else if (button == 3) {
+            ClickRight(hit);
+          }
+        }
       }
-      
-      if (button == 1 ) {
-        ClickLeft(hit);
-      } else if (button == 3) {
-        ClickRight(hit);
-      }
-      
       Draw();
-      
     }
     
     this.OnMouseUp = function(button) {
       mouseButtonsDown[button] = false;
+      this.slider.OnMouseUp();
+      if (!this.gameinprogress) {
+        InitMines(); // Reinit because difficulty might have changed
+      }
+      Draw();
+    }
+    
+    
+    this.OnMouseMove = function(coords) {
+      this.slider.OnMouseMove(coords);
     }
     
     function RightMousePressed() {
@@ -494,11 +644,8 @@ function App() {
     }
     
     function HandleBothPressed(hit) {
-      
       if (hit.open) {
-        
-        var neibsMarked = GetNeighbors(hit, function (hex) { return hex.marked; }).length;
-        
+        var neibsMarked = GetNeighbors(hit, function (hex) { return hex.marked; }).length;        
         if (neibsMarked == hit.neighborMines) {
           var nonMarked = GetNeighbors(hit, function(hex) { return !hex.marked; });
           for_each(nonMarked, function(hex) {OpenHex(hex)});
@@ -518,7 +665,6 @@ function App() {
         CheckVictory();
       }
     }
-    return this;
   }
   
   function GetContext() {
@@ -532,15 +678,17 @@ function App() {
   this.Start = function() {
     GetCanvas().onmousedown = OnMouseDownCB;
     GetCanvas().onmouseup = OnMouseUpCB;
+    GetCanvas().onmousemove = OnMouseMoveCB;
     GetCanvas().style.backgroundColor = bgColor;
     document.onkeydown = OnKey;
     document.body.style.backgroundColor = bgColor;
-    this.hg = HexGrid(26, 18, 20, { x: 40, y: 40});
+    this.hg = new HexGrid(26, 18, 20, { x: 40, y: 80});
+    
     StartGame();
   }
   
   function StartGame() {
-    this.hg.StartGame();
+    this.hg.InitGame();
   }
   
   function Demo() {
@@ -556,7 +704,7 @@ function App() {
     if (ev.keyCode == 82) {
       StartGame();
     }
-    
+  
     if (ev.keyCode == 68) {
       Demo();
     }
@@ -570,6 +718,10 @@ function App() {
     this.hg.OnMouseUp(button);
   }
   
+  function OnMouseMove(coords) {
+    this.hg.OnMouseMove(coords);
+  }
+  
   function OnMouseDownCB(ev) {
     x = ev.clientX;
     y = ev.clientY;
@@ -579,6 +731,13 @@ function App() {
   
   function OnMouseUpCB(ev) {
     OnMouseUp(ev.which);
+  }
+  
+  function OnMouseMoveCB(ev) {
+    x = ev.clientX;
+    y = ev.clientY;
+    canv = ScreenToCanvas(ev.clientX, ev.clientY);
+    OnMouseMove(canv);
   }
   
   return this;
