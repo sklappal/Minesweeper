@@ -351,11 +351,7 @@ function App() {
       if (this.victory || this.gameover) {
         return;
       }
-      
-      if (!GameInProgress()) {
-        OnGameStarted();
-      }
-      
+
       var action = TryFindOpenableHex();
       
       if (action == undefined) {
@@ -608,10 +604,6 @@ function App() {
         this.InitGame();
       } else { // Game in progress or about to start
         if (hit != undefined) {
-          if (!GameInProgress()) {
-            OnGameStarted();
-          }
-                    
           if (button == 1 ) {
             ClickLeft(hit);
           } else if (button == 3) {
@@ -656,6 +648,9 @@ function App() {
     
     function OpenHex(hit) {
       if (!hit.open) {
+        if (!GameInProgress()) {
+          OnGameStarted();
+        }
         hit.open = true;
         hit.marked = false;
         if (hit.mine) {
