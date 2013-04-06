@@ -586,7 +586,7 @@ function App() {
     }
     
     function GameInProgress() {
-      return that.hexes.filter(function(hex) { return hex.open; }).length == 0;
+      return that.hexes.filter(function(hex) { return hex.open; }).length > 0;
     }
     
     function OnGameStarted() {
