@@ -255,7 +255,6 @@ function App() {
     this.slider = new SliderControl({x: 700, y: 25});
     this.gameover = false;
     this.victory = false;
-    this.gameinprogress = false;
     
     var wintext = "";
     var losetext = "";
@@ -271,7 +270,6 @@ function App() {
       
       this.gameover = false;
       this.victory = false;
-      this.gameinprogress = false;
       
       victoryTexts = ["Great!", "Amazing!", "Congratulations!", "YEAH!", "Good Job!", "Well done!", "Lucky!", "Allright!", "Woot woot!"];
       loseTexts = ["Aww..", "Too bad!", "Damn!", "Knew it!", "You lose.", "*BOOM*", "Watch out!", "Loser :)"];
@@ -354,7 +352,7 @@ function App() {
         return;
       }
       
-      if (!this.gameinprogress) {
+      if (!GameInProgress()) {
         OnGameStarted();
       }
       
@@ -423,7 +421,7 @@ function App() {
     var mineRatio;
     
     function GetMineRatio() {
-      if (!that.gameinprogress) { // Update only when game not in progress
+      if (!GameInProgress()) { // Update only when game not in progress
         mineRatio = that.slider.val;
       }
       return mineRatio;
@@ -449,7 +447,7 @@ function App() {
         StrokeText("Click to restart.", 70, 600, largeFont, white);
       }
 
-      if (!that.gameinprogress) {
+      if (!GameInProgress()) {
         that.slider.Draw();
       } else {
         NormalText(that.slider.val, that.slider.position.x, that.slider.position.y + 8, smallFont, white);
@@ -457,7 +455,7 @@ function App() {
       
       NormalText("Mine ratio: ", that.slider.position.x - 70, that.slider.position.y + 8, smallFont, white);
       
-      NormalText("Marked: " + MarkedHexes(), 30, 10, smallFont, white);
+      NormalText("Flagged: " + MarkedHexes(), 30, 10, smallFont, white);
       NormalText("Total: " + TotalMineCount(), 30, 30, smallFont, white);
     }
     
@@ -587,9 +585,12 @@ function App() {
       }
     }
     
+    function GameInProgress() {
+      return that.hexes.filter(function(hex) { return hex.open; }).length == 0;
+    }
+    
     function OnGameStarted() {
       that.starttime = new Date().getTime();
-      that.gameinprogress = true;
     }
     
     var mouseButtonsDown = [];
@@ -597,7 +598,7 @@ function App() {
     this.OnMouseDown = function(coords, button) {
       mouseButtonsDown[button] = true;
       
-      if (this.slider.Contains(coords) && !this.gameinprogress) {
+      if (this.slider.Contains(coords) && !GameInProgress()) {
         this.slider.OnMouseDown(coords, button);
       }
       
@@ -607,7 +608,7 @@ function App() {
         this.InitGame();
       } else { // Game in progress or about to start
         if (hit != undefined) {
-          if (!this.gameinprogress) {
+          if (!GameInProgress()) {
             OnGameStarted();
           }
                     
@@ -624,7 +625,7 @@ function App() {
     this.OnMouseUp = function(button) {
       mouseButtonsDown[button] = false;
       this.slider.OnMouseUp();
-      if (!this.gameinprogress) {
+      if (!GameInProgress()) {
         InitMines(); // Reinit because difficulty might have changed
       }
       Draw();
