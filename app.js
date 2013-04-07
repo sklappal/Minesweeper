@@ -128,14 +128,37 @@ function App() {
   }
   
   function Hex(pos, index, radius) {
-    this.pos = pos;
+    var pos = pos;
     this.index = index;
-    this.radius = radius;
+    var radius = radius;
     this.mine = false;
-    this.open = false;
+    var open = false;
     this.visited = false;
-    this.marked = false;
+    var marked = false;
+    var redraw = true;
     
+    this.Open = function() {
+      open = true;
+      redraw = true;
+    }
+    
+    this.IsOpen = function() {
+      return open;
+    }
+    
+    this.ToggleMark = function() {
+      marked = !marked;
+      redraw = true;
+    }
+    
+    this.IsMarked = function() {
+      return marked;
+    }
+    
+    this.ReDraw = function() {
+      redraw = true;
+    }
+        
     function IsInsideTriangle(coord, a, b) {
       // a and b span a triangle. See if coord is inside it by using barycentric coordinates.
       
@@ -174,7 +197,7 @@ function App() {
     }
     
     this.Contains = function(coord) {
-      if (SqrDist(this.pos, coord) < radius*radius) {
+      if (SqrDist(pos, coord) < radius*radius) {
         var trans = [coord.x - pos.x, coord.y - pos.y]; // at origin
         var corners = this.GetCorners();
         
@@ -188,6 +211,11 @@ function App() {
     }
     
     this.Draw = function() {
+      
+      if (!redraw) {
+        return;
+      }
+      
       var corners = this.GetCorners();
       function innerDraw(ctx) {
         ctx.moveTo(x + corners[0][0], y + corners[0][1]);
@@ -197,14 +225,14 @@ function App() {
         }   
       }
       
-      var x = this.pos.x;
-      var y = this.pos.y;
+      var x = pos.x;
+      var y = pos.y;
       
       ctx = GetContext();
       
       // First draw the filled hex
       ctx.fillStyle = hexColor;
-      if (this.open) {
+      if (open) {
         if (this.mine) {
           ctx.fillStyle = openColor[7];
         } else {
@@ -223,7 +251,7 @@ function App() {
       ctx.stroke();
      
       text = "";
-      if (this.open) {
+      if (open) {
         if (this.mine) {
           text = "M";
         } else {
@@ -231,10 +259,11 @@ function App() {
             text = this.neighborMines;
           }
         }
-      } else if (this.marked) {
+      } else if (marked) {
         text = "X";
       }
       NormalText(text, x-3, y+4, smallFont, textColor);
+      redraw = false;
     }
     
   }
@@ -289,16 +318,16 @@ function App() {
         for (var i = 0; i < that.hexes.length; i++) {
           var hex = that.hexes[i];
           
-          if (hex.open) {
+          if (hex.IsOpen()) {
             var neibs = GetNeighbors(hex);
             
-            var closed = GetNeighbors(hex, function(hex) { return !hex.open; }).length;
-            var marked = GetNeighbors(hex, function(hex) { return hex.marked; }).length;
+            var closed = GetNeighbors(hex, function(hex) { return !hex.IsOpen(); }).length;
+            var marked = GetNeighbors(hex, function(hex) { return hex.IsMarked(); }).length;
             
             if (marked == hex.neighborMines) {
               if (closed > marked) {
                 for (var j = 0; j < neibs.length; j++) {
-                  if (!neibs[j].open && !neibs[j].marked) {
+                  if (!neibs[j].IsOpen() && !neibs[j].IsMarked()) {
                     return function() { ClickLeft(neibs[j]); Draw();};
                   }
                 }
@@ -312,22 +341,22 @@ function App() {
         // Mark hexes that are certain to contain mines
         for (var i = 0; i < that.hexes.length; i++) {
           var hex = that.hexes[i];
-          if (hex.open) {
+          if (hex.IsOpen()) {
             
             var neibs = GetNeighbors(hex);
             
-            var marked = GetNeighbors(hex, function(hex) { return hex.marked; }).length
+            var marked = GetNeighbors(hex, function(hex) { return hex.IsMarked(); }).length
             
             if (marked == hex.neighborMines) {
               continue;
             }
             
-            var closed = GetNeighbors(hex, function(hex) { return !hex.open; }).length
+            var closed = GetNeighbors(hex, function(hex) { return !hex.IsOpen(); }).length
             
             if (closed == hex.neighborMines) {
               return function() {
                 for (var j = 0; j < neibs.length; j++) {
-                  if (!neibs[j].open && !neibs[j].marked) {
+                  if (!neibs[j].IsOpen() && !neibs[j].IsMarked()) {
                     ClickRight(neibs[j]);
                   }
                 }
@@ -340,7 +369,7 @@ function App() {
       
       function OpenRandomNonMarkedHex() {
         // Find random closed hex to click
-        var closed = that.hexes.filter(function(hex) { return !hex.open && !hex.marked;})
+        var closed = that.hexes.filter(function(hex) { return !hex.IsOpen() && !hex.IsMarked();})
         
         console.log("Selecting randomly from " + closed.length + " hexes..");
         
@@ -424,11 +453,12 @@ function App() {
     }
     
     function Draw() {
+      var timeNow = new Date().getTime();
       if (that.victory) {
         hexColor = victoryColor;
       }
       
-      GetContext().clearRect(0, 0, GetCanvas().width, GetCanvas().height);
+      GetContext().clearRect(0, 0, GetCanvas().width, 60);
       
       for_each(that.hexes, function(hex) { hex.Draw(); });
   
@@ -446,17 +476,18 @@ function App() {
       if (!GameInProgress()) {
         that.slider.Draw();
       } else {
-        NormalText(that.slider.val, that.slider.position.x, that.slider.position.y + 8, smallFont, white);
+        NormalText(that.slider.val.toFixed(2), that.slider.position.x, that.slider.position.y + 8, smallFont, white);
       }
       
       NormalText("Mine ratio: ", that.slider.position.x - 70, that.slider.position.y + 8, smallFont, white);
       
       NormalText("Flagged: " + MarkedHexes(), 30, 10, smallFont, white);
       NormalText("Total: " + TotalMineCount(), 30, 30, smallFont, white);
+      console.log("Drawing took: " + (new Date().getTime() - timeNow));
     }
     
     function MarkedHexes() {
-      return that.hexes.filter(function(hex) { return hex.marked; }).length;
+      return that.hexes.filter(function(hex) { return hex.IsMarked(); }).length;
     }
     
     function GetNeighbors(current, cond) {
@@ -519,27 +550,29 @@ function App() {
     }
     
     function ClickRight(hit) {
-      if (hit.open) {
+      if (hit.IsOpen()) {
         if (LeftMousePressed()) {
           HandleBothPressed(); 
         }
       } else {
-        hit.marked = !hit.marked;
+        hit.ToggleMark();
       }
     }
     
     function ClickLeft(hit) {
-      if (hit.open) {
+      if (hit.IsOpen()) {
         if (RightMousePressed()) {
           HandleBothPressed(hit);
         }
       } else {
-        OpenHex(hit);
+        if (!hit.IsMarked()) {
+          OpenHex(hit);
+        }
       }
     }
     
     function GameOver() {
-      for_each(that.hexes, function(hex) { hex.open = true;});
+      for_each(that.hexes, function(hex) { hex.Open();});
       that.gameover = true;
       that.victory = false;
     }
@@ -563,7 +596,7 @@ function App() {
       
       for_each(result, function (res_hex) {
         neibs = GetNeighbors(res_hex);
-        for_each(neibs, function (neib_hex) { neib_hex.open = true;});
+        for_each(neibs, function (neib_hex) { if (!neib_hex.IsMarked()) { OpenHex(neib_hex); }});
       });
       
       for_each(that.hexes, function(hex) { hex.visited = false; });
@@ -572,17 +605,22 @@ function App() {
     function CheckVictory() {
       if (!that.gameover) { // Victory condition
         
-        var closedNonMines = that.hexes.filter(function(hex) { return !hex.open && !hex.mine;});
+        var closedNonMines = that.hexes.filter(function(hex) { return !hex.IsOpen() && !hex.mine;});
                 
         if (closedNonMines.length == 0) {
           that.victory = true;
           that.gametime = (new Date().getTime() - that.starttime) / 1000;
+          
+          var mines = that.hexes.filter(function(hex) { return hex.mine; });
+          
+          for_each(mines, function(hex) { hex.ReDraw(); });
+          
         }
       }
     }
     
     function GameInProgress() {
-      return that.hexes.filter(function(hex) { return hex.open; }).length > 0;
+      return that.hexes.filter(function(hex) { return hex.IsOpen(); }).length > 0;
     }
     
     function OnGameStarted() {
@@ -637,22 +675,21 @@ function App() {
     }
     
     function HandleBothPressed(hit) {
-      if (hit.open) {
-        var neibsMarked = GetNeighbors(hit, function (hex) { return hex.marked; }).length;        
+      if (hit.IsOpen()) {
+        var neibsMarked = GetNeighbors(hit, function (hex) { return hex.IsMarked(); }).length;        
         if (neibsMarked == hit.neighborMines) {
-          var nonMarked = GetNeighbors(hit, function(hex) { return !hex.marked; });
+          var nonMarked = GetNeighbors(hit, function(hex) { return !hex.IsMarked(); });
           for_each(nonMarked, function(hex) {OpenHex(hex)});
         }
       }
     }
     
     function OpenHex(hit) {
-      if (!hit.open) {
+      if (!hit.IsOpen()) {
         if (!GameInProgress()) {
           OnGameStarted();
         }
-        hit.open = true;
-        hit.marked = false;
+        hit.Open();
         if (hit.mine) {
           GameOver();
         } else if (hit.neighborMines == 0) {
