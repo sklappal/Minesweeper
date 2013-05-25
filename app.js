@@ -123,6 +123,18 @@ function App() {
     ctx.fillText(text, posx, posy);
   }
   
+  function FilledCircle(posx, posy, radius, color) {
+    var ctx = GetContext();
+    ctx.beginPath();
+    var counterClockwise = false;
+    ctx.arc(posx, posy, radius, 0, 2 * Math.PI, counterClockwise);
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = color;
+    ctx.stroke();
+  }
+  
   function SqrDist(coords1, coords2) {
     return Math.pow(coords1.x - coords2.x, 2) + Math.pow(coords1.y - coords2.y, 2);
   }
@@ -249,20 +261,20 @@ function App() {
       ctx.lineWidth = "2";
       innerDraw(ctx);
       ctx.stroke();
-     
-      text = "";
+           
+      var HexText = function(text) {        
+        return NormalText(text, x-3, y+4, smallFont, textColor);
+      }
+      
       if (open) {
-        if (this.mine) {
-          text = "M";
-        } else {
+        if (!this.mine) {
           if (this.neighborMines > 0) {
-            text = this.neighborMines;
+            HexText(this.neighborMines);
           }
         }
       } else if (marked) {
-        text = "X";
+        HexText("X");
       }
-      NormalText(text, x-3, y+4, smallFont, textColor);
       redraw = false;
     }
     
