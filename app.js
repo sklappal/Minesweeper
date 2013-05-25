@@ -453,14 +453,14 @@ function App() {
     }
     
     function DrawHexes() {
-      var timeNow = new Date().getTime();
+    //  var timeNow = new Date().getTime();
       for (var i = 0; i < that.hexes.length; i++) {
         var time = new Date().getTime();
       
-        if (time - timeNow > 10) {
+      /*  if (time - timeNow > 10) {
           setTimeout(DrawHexes, 0);
           return;
-        }
+        }*/
       
         that.hexes[i].Draw();
       }
