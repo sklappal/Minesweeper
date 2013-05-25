@@ -9,7 +9,7 @@ function App() {
   var textColor = "#000000";
   var hexColor = white;
   var smallFont = "12px Segoe UI";
-  var largeFont = "96px Segoe UI";
+  var largeFont = "bold 96px Segoe UI";
   var sqrt3per2 = 0.86602540378;
   
   function SliderControl(pos) {
@@ -452,25 +452,32 @@ function App() {
       return mineRatio;
     }
     
-    function Draw() {
+    function DrawHexes() {
       var timeNow = new Date().getTime();
-      if (that.victory) {
-        hexColor = victoryColor;
+      for (var i = 0; i < that.hexes.length; i++) {
+        var time = new Date().getTime();
+      
+        if (time - timeNow > 10) {
+          setTimeout(DrawHexes, 0);
+          return;
+        }
+      
+        that.hexes[i].Draw();
       }
-      
+      setTimeout(DrawOverlay, 0);
+    }
+    
+    function DrawOverlay() {
       GetContext().clearRect(0, 0, GetCanvas().width, 60);
-      
-      for_each(that.hexes, function(hex) { hex.Draw(); });
-  
       if (that.gameover || that.victory) {
         
         var text = that.gameover ? losetext : wintext;
         
-        StrokeText(text, 70, 200, largeFont, white)
+        StrokeText(text, 50, 200, largeFont, white)
         if (that.victory) {
-          StrokeText("Took " + that.gametime.toFixed(2) + " s.", 70, 400, largeFont, white);
+          StrokeText("Took " + that.gametime.toFixed(2) + " s.", 50, 400, largeFont, white);
         }
-        StrokeText("Click to restart.", 70, 600, largeFont, white);
+        StrokeText("Click to restart.", 50, 600, largeFont, white);
       }
 
       if (!GameInProgress()) {
@@ -483,7 +490,14 @@ function App() {
       
       NormalText("Flagged: " + MarkedHexes(), 30, 10, smallFont, white);
       NormalText("Total: " + TotalMineCount(), 30, 30, smallFont, white);
-      console.log("Drawing took: " + (new Date().getTime() - timeNow));
+    }
+    
+    function Draw() {
+      if (that.victory) {
+        hexColor = victoryColor;
+      }
+      
+      DrawHexes();
     }
     
     function MarkedHexes() {
@@ -552,7 +566,7 @@ function App() {
     function ClickRight(hit) {
       if (hit.IsOpen()) {
         if (LeftMousePressed()) {
-          HandleBothPressed(); 
+          HandleBothPressed(hit); 
         }
       } else {
         hit.ToggleMark();
@@ -595,8 +609,8 @@ function App() {
       }
       
       for_each(result, function (res_hex) {
-        neibs = GetNeighbors(res_hex);
-        for_each(neibs, function (neib_hex) { if (!neib_hex.IsMarked()) { OpenHex(neib_hex); }});
+        neibs = GetNeighbors(res_hex, function(hex) { return !hex.IsOpen() && !hex.IsMarked(); });
+        for_each(neibs, function (neib_hex) { neib_hex.Open(); });
       });
       
       for_each(that.hexes, function(hex) { hex.visited = false; });
