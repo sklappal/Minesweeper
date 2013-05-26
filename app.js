@@ -487,7 +487,16 @@ function App() {
         
         StrokeText(text, 50, 200, largeFont, white)
         if (that.victory) {
-          StrokeText("Took " + that.gametime.toFixed(2) + " s.", 50, 400, largeFont, white);
+          var gameLenStr = "";
+          var gameLen = that.gametime;
+          if (gameLen >= 60) {
+            var mins = Math.floor(gameLen / 60);
+            gameLenStr = mins + ":";
+            gameLen -= mins * 60;
+          }
+          
+          gameLenStr = gameLenStr + gameLen.toFixed(2) + ".";
+          StrokeText("Time: " + gameLenStr, 50, 400, largeFont, white);
         }
         StrokeText("Click to restart.", 50, 600, largeFont, white);
       }
