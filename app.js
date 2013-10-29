@@ -324,9 +324,14 @@ function App() {
       Draw();
     }
     
+    function chooseRandom(arr) {
+      return arr[Math.floor(Math.random() * arr.length)];
+    }
+    
     this.Demo = function() {
       function TryFindOpenableHex() {
-        // Find a hex that has enough neighors marked so that it can be safely opened
+        // Find a hex that has enough neighors marked so that it can be safely opened. Choose randomly for nicer observable effect.
+        var candidates = [];
         for (var i = 0; i < that.hexes.length; i++) {
           var hex = that.hexes[i];
           
@@ -335,22 +340,30 @@ function App() {
             
             var closed = GetNeighbors(hex, function(hex) { return !hex.IsOpen(); }).length;
             var marked = GetNeighbors(hex, function(hex) { return hex.IsMarked(); }).length;
-            
+           
             if (marked == hex.neighborMines) {
               if (closed > marked) {
                 for (var j = 0; j < neibs.length; j++) {
                   if (!neibs[j].IsOpen() && !neibs[j].IsMarked()) {
-                    return function() { ClickLeft(neibs[j]); Draw();};
+                    // This weirdness is in place to provide the reference to the correct hex to the candidate function. 
+                    candidates.push(
+                      function() {
+                        var myHexref = neibs[j];
+                        return function() {ClickLeft(myHexref);};
+                    }());
                   }
                 }
               }
             }
           }
         }
+        return chooseRandom(candidates);
       }
       
       function TryFindMarkableHexes() {
         // Mark hexes that are certain to contain mines
+        
+        var candidates = [];
         for (var i = 0; i < that.hexes.length; i++) {
           var hex = that.hexes[i];
           if (hex.IsOpen()) {
@@ -365,18 +378,22 @@ function App() {
             
             var closed = GetNeighbors(hex, function(hex) { return !hex.IsOpen(); }).length
             
-            if (closed == hex.neighborMines) {
-              return function() {
-                for (var j = 0; j < neibs.length; j++) {
-                  if (!neibs[j].IsOpen() && !neibs[j].IsMarked()) {
-                    ClickRight(neibs[j]);
-                  }
+            if (closed == hex.neighborMines) {              
+              for (var j = 0; j < neibs.length; j++) {
+                if (!neibs[j].IsOpen() && !neibs[j].IsMarked()) {
+                  // This weirdness is in place to provide the reference to the correct hex to the candidate function. 
+                  candidates.push(
+                    function() {
+                      var myHexref = neibs[j];
+                      return function() {ClickRight(myHexref);};
+                  }());
                 }
-                Draw(); 
-              };
+              }
             }
           }
         }
+        return chooseRandom(candidates);
+        
       }
       
       function OpenRandomNonMarkedHex() {
@@ -386,7 +403,7 @@ function App() {
         console.log("Selecting randomly from " + closed.length + " hexes..");
         
         var randhex = closed[Math.floor(Math.random() * closed.length)];
-        return function() { ClickLeft(randhex); Draw();};
+        return function() { ClickLeft(randhex);};
       }
       
       if (this.victory || this.gameover) {
@@ -403,7 +420,7 @@ function App() {
         action = OpenRandomNonMarkedHex();
       }
       
-      setTimeout(action, 50);
+      setTimeout(function() { action(); Draw(); }, 50);
     
       setTimeout(function() { that.Demo(); }, 50);
     }
